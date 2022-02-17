@@ -1,3 +1,3 @@
 # panda_control_DQ
 
-## Admittance controller within DQ mathematical background
+## Admittance controller using DQ log mapping
