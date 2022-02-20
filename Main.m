@@ -9,7 +9,7 @@ clc;
 % fuse = 1,2 %free motion simulation (open franka_scene.ttt)
 % fuse = 3 %interaction task with table (open franka_int.ttt)
 % fuse = 4 %grasping task (open franka_grap.ttt)
-fuse = 3; 
+fuse = 4; 
 
 %% Addpath 
 
@@ -66,7 +66,7 @@ if fuse == 1 || fuse == 2
 else
     Md1 = 1.5*I; %desired mass
     Kd1 = 300*I; %desired stiffness
-    Bd1 = sqrt(4*Kd1*Md1); %desired damping
+    Bd1 = 4*sqrt(4*Kd1*Md1); %desired damping
 end
 
 
