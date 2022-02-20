@@ -242,38 +242,36 @@ if (clientID>-1)
         tauf = get_FrictionTorque(qm_dot);                
         
         %% Controller gains;
-%         kp = 100;
-%         kd = 10;
-%         ki = 500; 
          kp = 1000*0.5;
          kd = 100*0.5;
          ki = 500; %integral gain
+         
+%          e = xd_des - x;
+%          de = dxd_des - dx;
+%          ei = de*cdt + e;
+%          y = pinv(Jp)*(ddxd_des - Jp_dot*qm_dot  + kp*eye(8)*e + kd*eye(8)*de + 0*ki*eye(8)*ei);
+%          tau = M*y + c + g;
                  
         %% Define error 
-        %% DQ defintiion --> e = 1 - x*xd' = (xd - x)*xd'
-%         xe = xd_des - x;
-%         dxe = dxd_des - dx;
-%         e = haminus8(DQ(C8*xd_des))*xe;
-%         e_dot = haminus8(DQ(C8*dxd_des))*xe + haminus8(DQ(C8*xd_des))*dxe;
-%         ei = e_dot*cdt + e; 
-         e = xd_des - x;
-         de = dxd_des - dx;
-         ei = de*cdt + e;
-         y = pinv(Jp)*(ddxd_des - Jp_dot*qm_dot  + kp*eye(8)*e + kd*eye(8)*de + 0*ki*eye(8)*ei);
-         tau = M*y + c + g; 
+        %% Invariant error defintiion --> e = 1 - x*xd' = (xd - x)*xd' (DQ)
+        xe = xd_des - x;
+        dxe = dxd_des - dx;
+        e = haminus8(DQ(C8*xd_des))*xe;
+        e_dot = haminus8(DQ(C8*dxd_des))*xe + haminus8(DQ(C8*xd_des))*dxe;
+        ei = e_dot*cdt + e; 
 
         %% define desired closed-loop dynamics
-%         y =  kd*eye(8)*e_dot +kp*eye(8)*e;
+        y =  kd*eye(8)*e_dot +kp*eye(8)*e;
 
         %% control input task space
-%         ax = haminus8(DQ(C8*ddxd_des))*xe + 2*haminus8(DQ(C8*dxd_des))*dxe + haminus8(DQ(C8*xd_des))*(ddxd_des - Jp_dot*qm_dot) + y; 
-%         J_inv = pinv(haminus8(DQ(C8*xd_des))*Jp);
+        ax = haminus8(DQ(C8*ddxd_des))*xe + 2*haminus8(DQ(C8*dxd_des))*dxe + haminus8(DQ(C8*xd_des))*(ddxd_des - Jp_dot*qm_dot) + y; 
+        J_inv = pinv(haminus8(DQ(C8*xd_des))*Jp);
         
         %% control input joint space
-%         aq = J_inv*ax; 
+        aq = J_inv*ax; 
 
         %% fb linearization
-%         tau = M*aq + c + g ;
+        tau = M*aq + c + g ;
         
         %% Null-space controller
         N = haminus8(DQ(xd_des))*DQ.C8*Jp;
