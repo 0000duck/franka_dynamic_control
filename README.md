@@ -12,7 +12,7 @@ The inner motion control loop is a task-space controller that realizes a complet
 
 The controller is tested on 4 four simple demos:
 
-1. Free motion tasks: *gen_traj.m* (fuse = 1) and *int_traj.m* (fuse = 2);
+1. Free motion tasks: *gen_traj.m* (fuse = 1) and *circ_traj.m* (fuse = 2);
 2. Interaction tasks: *int_traj.m* (fuse = 3) and *grasp_traj.m* (fuse = 4).
 
 Each demo can be set by changing the value of fuse in *Main.m* to the corresponding value.
