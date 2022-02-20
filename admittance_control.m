@@ -5,7 +5,7 @@ function [xc,dxc,ddxc,yr,dyr] = admittance_control(xd,dxd,ddxd,psi_ext,xr,yr,dyr
 % effector under impedance control.
 
 %%Inputs: xd,dxd,ddxd = desired reference trajectory; [8x1]
-%         psi_ext = ext wrench on EE with respect to compliant frame; [6x1] 
+%         psi_ext = ext wrench on EE with respect to compliant frame; [1x6] 
 %         time = simulation time;
 %         xr= previous computed reference pose;
 %         yr,dyr = previous computed log mapping;

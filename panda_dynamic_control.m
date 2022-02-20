@@ -2,19 +2,23 @@
 
 %% Description: simulation file for dynamic control of a 7 dof Panda Robot in Vrep using Dual Quaternions.
 %%Admittance controller: impedance controller in the outer loop +
-%%task-space motion control with feedback linearization.
-
-%% Clear workspace
-clear;
-clc;
-close all;
+%%task-space motion control with feedback linearization. 
 
 %% Addpath 
 include_namespace_dq;
 
-%% Load parameters
-run Main.m 
-fuse = 1; 
+%% Initialize variables
+%%admittance controller
+xc_data = zeros(size(time,2),8);
+dxc_data = zeros(size(time,2),8);
+ddxc_data = zeros(size(time,2),8);
+yr_data = zeros(size(time,2),6);
+dyr_data =  zeros(size(time,2),6);
+
+%%wrench vector
+w_ext_data = zeros(size(time,2),6); %external wrench on EE (world_frame)
+psi_ext_data = zeros(size(time,2),6); %external wrench on EE (complinat_reference_frame)
+
 
 %% Load desired trajectory
 switch fuse
@@ -22,13 +26,13 @@ switch fuse
         % gen_traj: task-space minimum jerk trajectory free-motion.
         [xd1, dxd1, ddxd1] = gen_traj(x_in,time);
     case 2
-        % circ_traj: circular trajectory plane y-z
-        [xd1, dxd1, ddxd1] = gen_traj(x_in,time);
+        % circ_traj: circular trajectory plane y-z.
+        [xd1, dxd1, ddxd1] = circ_traj(x_in,time);
     case 3
-        % int_traj: trajectory for interaction task test
+        % int_traj: trajectory for interaction task test.
         [xd1, dxd1, ddxd1] = int_traj(x_in,time);
     case 4
-        % grasp_traj: trajectory for simple grasping task test
+        % grasp_traj: trajectory for simple grasping task test.
         [xd1,dxd1,ddxd1,grasp_data] = grasp_traj(x_in,time); 
 end
 
@@ -55,11 +59,11 @@ if (clientID>-1)
     
     handles = get_joint_handles(sim,clientID);
     joint_handles = handles.armJoints;
-    
-    
     fep  = fep_vreprobot.kinematics(); 
-    
-    % get initial state of the robot
+    fep.set_reference_frame(pose_joint); %set base-frame to current pose of joint1
+
+  
+    %% get initial state of the robot
     qstr = '[ ';
     qdotstr = '[ ';
     
@@ -77,14 +81,13 @@ if (clientID>-1)
     disp('Initial Joint Velocities: ');
     disp(qdotstr);
     
-    
     %% Setting to synchronous mode
     %---------------------------------------
-    sim.simxSynchronous(clientID,true)   
-    sim.simxSynchronousTrigger(clientID)
-    sim.simxSetFloatingParameter(clientID, sim.sim_floatparam_simulation_time_step, cdt, sim.simx_opmode_oneshot)
+    sim.simxSynchronous(clientID,true);  
+    sim.simxSynchronousTrigger(clientID);
+    sim.simxSetFloatingParameter(clientID, sim.sim_floatparam_simulation_time_step, cdt, sim.simx_opmode_oneshot);
     
-    %  start our simulation in lockstep 
+    %  start simulation
     sim.simxStartSimulation(clientID, sim.simx_opmode_blocking);
     %---------------------------------------
     
@@ -95,11 +98,11 @@ if (clientID>-1)
         [~,qmread(j)]  = sim.simxGetJointPosition(clientID,joint_handles(j),sim.simx_opmode_blocking);
     end      
     qm = double([qmread])';
-
-    % Saving data to analyze later
-    sres.qm = [];  sres.qm_dot = []; 
-    sres.qd = [];  sres.qd_dot = [];  sres.qd_ddot = [];
-    sres.T = [];   sres.xdq = []; sres.cdq = [];
+    
+    % Saving data to struct analyze later
+    sres.qm = [];  sres.qm_dot = []; sres.tau_send = [];
+    sres.xd = [];  sres.xd_dot = [];  sres.xd_ddot = [];
+    sres.x = []; sres.xref = []; sres.r = []; 
     %---------------------------------------    
     
     % time
@@ -108,7 +111,7 @@ if (clientID>-1)
 %% Control loop   
      while sim.simxGetConnectionId(clientID)~=-1
         
-        if i>size(qDesired,1)
+        if i>size(time,2)
             break
         end
         
@@ -117,15 +120,16 @@ if (clientID>-1)
         for j=1:7
             [~,tauOrig(j)] = sim.simxGetJointForce(clientID,joint_handles(j),sim.simx_opmode_blocking);
             [~,qmread(j)]  = sim.simxGetJointPosition(clientID,joint_handles(j),sim.simx_opmode_blocking);
-        end      
-        qmOld = qm;
-        % Current joint configuration 
-        disp('Measured joint position');
+        end   
+        
+        qmOld = qm; %update value
+        
+        %Current joint configuration
         qm = double([qmread])';
         
         % Current EE configuration
-        disp('Current EE configuration');
-        xdq = fep.fkm(qm); %DQ pose
+        x = vec8(fep.fkm(qm)); %DQ pose
+        r0 = vec4(DQ(x).P); %EE rotation
         
         % Pose Jacobian
         Jp = fep.pose_jacobian(qm);
@@ -139,96 +143,149 @@ if (clientID>-1)
         % Current joint derivative (Euler 1st order derivative)
         qm_dot = (qm-qmOld)/cdt; %computed as vrep function 
         
+        %Current 1st-time derivative of EE pose
+        dx = Jp*qm_dot;
+        
         % Pose Jacobian first-time derivative 
         Jp_dot = fep.pose_jacobian_derivative(qm,qm_dot);
         %---------------------------------------    
         
-        % Desired joint positions
-        q = qDesired(i,:);
+        %% Admittance control
+        % initialize variable
+        if i~=1
+            xr = xc_data(i-1,:)';
+            yr_in = yr_data(i-1,:)';
+            dyr_in = dyr_data(i-1,:)';
+        else
+            xr = vec8(x_in);
+            e_in = vec8(DQ(xr)'*DQ(xd1(1,:)));
+            yr_in = vec6(log(DQ(e_in)));
+            dyr_in = zeros(6,1);
+        end
         
-        % Desired Cartesian pose
-        cdq = fep.fkm(q); 
-       
+        %% Model ext forces
+        
+        switch fuse
+            case 1
+                % free-motion trajectory
+                psi_ext = zeros(1,6); %external wrench (compliant frame)
+                psi_ext_data(i,:) = psi_ext; 
+            case 2
+                % free-motion trajectory
+                psi_ext = zeros(1,6); %external wrench (compliant frame)
+                psi_ext_data(i,:) = psi_ext; 
+            case 3
+                % interaction task: model of external forces
+                wrench_ext = ext_forces(x);
+                w_ext_data(i,:) = wrench_ext;
+                psi_ext = vec6(DQ(r0)'*DQ(wrench_ext)*DQ(r0)); %external wrench (compliant frame)
+                psi_ext = psi_ext';
+                psi_ext_data(i,:) = psi_ext;
+            case 4
+                 % grasping task: model of external forces task test.
+                grasp = grasp_data(i,:);
+                wrench_ext = fext_grasp(x,grasp);
+                w_ext_data(i,:) = wrench_ext;
+                psi_ext = vec6(DQ(r0)'*DQ(wrench_ext)*DQ(r0)); %external wrench (compliant frame)
+                psi_ext = psi_ext'; 
+                psi_ext_data(i,:) = psi_ext;
+        end
+        
+      %% Compute compliant trajectory
+        
+        [xd,dxd,ddxd,yr,dyr] = admittance_control(xd1(i,:),dxd1(i,:),ddxd1(i,:),psi_ext,xr,yr_in,dyr_in,Md1,Kd1,Bd1,time);
+        
+        xc_data(i,:) = xd; 
+        dxc_data(i,:) = dxd;
+        ddxc_data(i,:) = ddxd;
+        yr_data(i,:) = yr; 
+        dyr_data(i,:) = dyr; 
+        
+        % Compliant trajectory position,velocity acceleration
+        xd_des = xc_data(i,:)';
+        dxd_des = dxc_data(i,:)';
+        ddxd_des = ddxc_data(i,:)'; 
+        
+        %Desired trajectory
+        xd1_str = xd1(i,:);
+        dx1_str = dxd1(i,:);
+        ddxd1_str = ddxd1(i,:);
+         
+        %Ext force (%world_frame)
+        fext = w_ext_data(i,1:3)';
+        
         % Printing the time step of the simulation and the error
         % -----------------------
-        %disp(['it: ',num2str(i),' time(',num2str(i*cdt),') - error:',num2str(norm( q'-qm ))])  
-        disp(['it: ',num2str(i),' time(',num2str(i*cdt),') - error:',num2str(norm(vec8(cdq-xdq)))])
-        disp(['it: ',num2str(i),' time(',num2str(i*cdt),') - pos error:',num2str(norm(vec4(cdq.translation-xdq.translation)))])
-        
-        % Vector with both joints: desired vs real (simulated)
-        %disp('Vector with both joints: desired and real (simulated)')
-        [q; double([qmread])];
-        % ----------------------
-        
-        % Desired joint velocities
-        dq = qdotDesired(i,:);
-        
-        % Desired joint accelerations
-        ddq = qddotDesired(i,:);
+        disp(['it: ',num2str(i),' time(',num2str(i*cdt),') - error:',num2str(norm(xd_des-x))])
+        disp(['it: ',num2str(i),' time(',num2str(i*cdt),') - pos error:',num2str(norm(vec4(DQ(xd_des).translation-DQ(x).translation)))])
+       
         
         % Saving data to analyze later
         % -----------------------
         sres.qm(:,i) = qm;  sres.qm_dot(:,i) = qm_dot;  
-        sres.qd(:,i) = q';  sres.qd_dot(:,i) = dq';  sres.qd_ddot(:,i) = ddq'; 
-        sres.xdq(:,i) = vec4(xdq.translation); sres.cdq(:,i) = vec4(cdq.translation);
+        sres.xd(:,i) = vec4(DQ(xd_des).translation);  sres.xd_dot(:,i) = dxd_des;  sres.xd_ddot(:,i) = ddxd_des;
+        sres.x(:,i) = vec4(DQ(x).translation); 
+        sres.xref(:,i) = vec4(DQ(xd1_str).translation);
+        sres.fext(:,i) = fext; 
+        sres.r(:,i) = r0; 
         
-        % -----------------------        
+        % -----------------------   
+        
         %% Motion Control
-        % Using the dynamic model
-        O = zeros(1,6);
-        I = eye(3);
-        A = [O; I zeros(3,1) zeros(3,1) zeros(3,1); ...
-             O;zeros(3,1) zeros(3,1)  zeros(3,1) I;]; %mapping
+        %%Task space inverse dynamics with fb linearization:
+        %% u = M(q)*y + c(q,dq) + g(q) 
         
-        % Using the dynamic model
+        % Retrieve dyanmics
         g = get_GravityVector(qm);
         c = get_CoriolisVector(qm,qm_dot);
         M = get_MassMatrix(qm);
-        % The vrep model does not account for friction torques. Including
-        % them leads to bad behaviour. 
         tauf = get_FrictionTorque(qm_dot);                
         
         %% Controller gains;
-        % Stiffness matrix
-        K = eye(8)*1000; 
-        % Damping matrix
-        D = eye(8)*5;                                                                    
+%         kp = 100;
+%         kd = 10;
+%         ki = 500; 
+         kp = 1000*0.5;
+         kd = 100*0.5;
+         ki = 500; %integral gain
+                 
+        %% Define error 
+        %% DQ defintiion --> e = 1 - x*xd' = (xd - x)*xd'
+%         xe = xd_des - x;
+%         dxe = dxd_des - dx;
+%         e = haminus8(DQ(C8*xd_des))*xe;
+%         e_dot = haminus8(DQ(C8*dxd_des))*xe + haminus8(DQ(C8*xd_des))*dxe;
+%         ei = e_dot*cdt + e; 
+         e = xd_des - x;
+         de = dxd_des - dx;
+         ei = de*cdt + e;
+         y = pinv(Jp)*(ddxd_des - Jp_dot*qm_dot  + kp*eye(8)*e + kd*eye(8)*de + 0*ki*eye(8)*ei);
+         tau = M*y + c + g; 
 
-%%       Task-space inverse dynamics with fb linearization
-         kp = 100;
-         kd = 10;
-         ki = 50; %integral gain 
-        
-        %% define error 
-        xe = vec8(cdq - xdq);
-        dxe = Jp*dq' - Jp*qm_dot;
-        e = haminus8(DQ(C8*vec8(cdq)))*xe;
-        e_dot = haminus8(DQ(C8*Jp*dq'))*xe + haminus8(DQ(C8*vec8(cdq)))*dxe;
-        
-        %% define cl dynamics
-        y =  kd*e_dot +kp*e;
-        ddxr = Jp_dot*dq' + Jp*ddq';
-        J = geomJ(fep,qm);
-        Jg2 = A*J;
-        
+        %% define desired closed-loop dynamics
+%         y =  kd*eye(8)*e_dot +kp*eye(8)*e;
+
         %% control input task space
-        ax = haminus8(DQ(ddxr)')*xe + 2*haminus8(DQ(C8*Jp*dq'))*dxe + haminus8(DQ(C8*vec8(cdq)))*(ddxr - Jp_dot*qm_dot) + y; 
-        J_inv = pinv(haminus8(DQ(C8*vec8(cdq)))*Jp);
-        %control input joint space
-        aq = J_inv*ax; 
-%       aq = Jg2'*ax;
+%         ax = haminus8(DQ(C8*ddxd_des))*xe + 2*haminus8(DQ(C8*dxd_des))*dxe + haminus8(DQ(C8*xd_des))*(ddxd_des - Jp_dot*qm_dot) + y; 
+%         J_inv = pinv(haminus8(DQ(C8*xd_des))*Jp);
+        
+        %% control input joint space
+%         aq = J_inv*ax; 
 
         %% fb linearization
-        tau = M*aq + c + g ;
-        N = haminus8(cdq)*DQ.C8*Jp;
+%         tau = M*aq + c + g ;
+        
+        %% Null-space controller
+        N = haminus8(DQ(xd_des))*DQ.C8*Jp;
         robustpseudoinverse = N'*pinv(N*N' + 0.1*eye(8));
-        %%%%%%%%% null space control %%%%%%%%%
-        P = eye(7) - pinv(N)*N;
+        P = eye(7) - pinv(N)*N; %null-space projector
         D_joints = eye(7)*2;
         tau_null = P*(-D_joints*qm_dot);
+        
+        %% Torque command
         tau = tau + tau_null;
         
-        %store for later
+        %store sent torque commands for later
         tau_send = tau;
         sres.tau_send(:,i) = tau_send;
         
@@ -237,7 +294,7 @@ if (clientID>-1)
             if tau(j)<0
                 set_vel = -99999;
             else
-                set_vel = 9999;
+                set_vel = 99999;
             end
             % blocking mode
             %---------------------------------         
@@ -254,89 +311,19 @@ if (clientID>-1)
         sim.simxSynchronousTrigger(clientID);
         %---------------------------------
         i = i+1;        
-    end
-   
+     end
+     
     % Now close the connection to V-REP:
     sim.simxStopSimulation(clientID,sim.simx_opmode_blocking);
     sim.simxFinish(clientID);
+    
 else
     disp('Failed connecting to remote API server');
 end
 sim.delete(); % call the destructor!
 
-%% PLots if wanted
-figure(); 
-plot(tt,sres.qd_dot(1,:),'m--','LineWidth',3); 
-hold on, grid on
-plot(tt,sres.qm_dot(1,:),'m','LineWidth',2);
-legend('qdotDesired','qdotMeasured'); 
-hold on, grid on
-plot(tt,sres.qd_dot(2,:),'b--','LineWidth',3); 
-hold on, grid on
-plot(tt,sres.qm_dot(2,:),'b','LineWidth',2);
-legend('qdotDesired','qdotMeasured'); 
-hold on, grid on
-plot(tt,sres.qd_dot(3,:),'g--','LineWidth',3);
-hold on, grid on
-plot(tt,sres.qm_dot(3,:),'g','LineWidth',2);
-legend('qdotDesired','qdotMeasured'); 
-hold on, grid on
-plot(tt,sres.qd_dot(4,:),'k--','LineWidth',3); 
-hold on, grid on
-plot(tt,sres.qm_dot(4,:),'k','LineWidth',2);
-legend('qdotDesired','qdotMeasured'); 
-hold on, grid on
-plot(tt,sres.qd_dot(5,:),'r--','LineWidth',3); 
-hold on, grid on
-plot(tt,sres.qm_dot(5,:),'r','LineWidth',2);
-legend('qdotDesired','qdotMeasured'); 
-hold on, grid on
-plot(tt,sres.qd_dot(6,:),'c--','LineWidth',3);
-hold on, grid on
-plot(tt,sres.qm_dot(6,:),'c','LineWidth',2);
-legend('qdotDesired','qdotMeasured'); 
-hold on, grid on
-plot(tt,sres.qd_dot(7,:),'y--','LineWidth',3); 
-hold on, grid on
-plot(tt,sres.qm_dot(7,:),'y','LineWidth',2);
-legend('qdotDesired','qdotMeasured'); 
-
-figure(); 
-plot(tt,sres.qd(1,:),'m--','LineWidth',3); 
-hold on, grid on
-plot(tt,sres.qm(1,:),'m','LineWidth',2);
-legend('qDesired','qMeasured'); 
-hold on, grid on
-plot(tt,sres.qd(2,:),'b--','LineWidth',3); 
-hold on, grid on
-plot(tt,sres.qm(2,:),'b','LineWidth',2);
-legend('qDesired','qMeasured'); 
-hold on, grid on
-plot(tt,sres.qd(3,:),'g--','LineWidth',3); 
-hold on, grid on
-plot(tt,sres.qm(3,:),'g','LineWidth',2);
-hold on, grid on
-legend('qDesired','qMeasured'); 
-plot(tt,sres.qd(4,:),'k--','LineWidth',3); 
-hold on, grid on
-plot(tt,sres.qm(4,:),'k','LineWidth',2);
-legend('qDesired','qMeasured'); 
-hold on, grid on
-plot(tt,sres.qd(5,:),'r--','LineWidth',3); 
-hold on, grid on
-plot(tt,sres.qm(5,:),'r','LineWidth',2);
-legend('qDesired','qMeasured'); 
-hold on, grid on
-plot(tt,sres.qd(6,:),'c--','LineWidth',3); 
-hold on, grid on
-plot(tt,sres.qm(6,:),'c','LineWidth',2);
-legend('qDesired','qMeasured'); 
-hold on, grid on
-plot(tt,sres.qd(7,:),'y--','LineWidth',3); 
-hold on, grid on
-plot(tt,sres.qm(7,:),'y','LineWidth',2);
-legend('qDesired','qMeasured'); 
-
+%% Plots results
+%% Controller inputs
 figure(); 
 plot(tt,sres.tau_read(:,1),'m--','LineWidth',3); 
 hold on, grid on
@@ -367,20 +354,33 @@ hold on, grid on
 plot(tt,sres.tau_read(:,7),'y','LineWidth',2);
 legend('tsend','tread'); 
 
-%%position plot
+%% EE position comparison
 figure();
-plot(tt,sres.cdq(2,:),'c--','LineWidth',3); 
+plot(tt,sres.xd(2,:),'r--','LineWidth',3); 
 hold on, grid on
-plot(tt,sres.xdq(2,:),'c','LineWidth',2);
-legend('xd','x')
+plot(tt,sres.x(2,:),'c','LineWidth',2);
+hold on, grid on
+plot(tt,sres.xref(2,:),'b','LineWidth',2)
+legend('xc','x','xd')
 figure();
-plot(tt,sres.cdq(3,:),'c--','LineWidth',3); 
+plot(tt,sres.xd(3,:),'r--','LineWidth',3); 
 hold on, grid on
-plot(tt,sres.xdq(3,:),'c','LineWidth',2);
-legend('yd','y')
+plot(tt,sres.x(3,:),'c','LineWidth',2);
+hold on,grid on
+plot(tt,sres.xref(3,:),'b','LineWidth',2)
+legend('yc','y','yd')
 figure()
-plot(tt,sres.cdq(4,:),'c--','LineWidth',3); 
+plot(tt,sres.xd(4,:),'r--','LineWidth',3); 
 hold on, grid on
-plot(tt,sres.xdq(4,:),'c','LineWidth',2);
-legend('zd','z')
-        
+plot(tt,sres.x(4,:),'c','LineWidth',2);
+hold on,grid on
+plot(tt,sres.xref(4,:),'b','LineWidth',2)
+legend('zc','z','zd')
+
+%% Ext forces
+figure()
+plot(tt,sres.fext(1,:),'LineWidth',2);
+hold on, grid on
+plot(tt,sres.fext(2,:),'LineWidth',2);
+hold on,grid on
+plot(tt,sres.fext(3,:),'LineWidth',2);

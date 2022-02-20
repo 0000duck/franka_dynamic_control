@@ -41,7 +41,7 @@ for i = 1:size(time,2)
     dzd = (pos_i - pos_f)*(60*(t^3)/(tf^4) - 30*(t^4)/(tf^5) -30*(t^2)/(tf^3));
     ddzd = (pos_i - pos_f)*(180*(t^2)/(tf^4) - 120*(t^3)/(tf^5) -60*(t)/(tf^3));
     
-    %Compute trajectory
+    %% Compute trajectory
     x_des = vec8(DQ(r0) + 0.5*DQ.E*(DQ(zd)*DQ(r0)));
     dx_des =  vec8(0.5*DQ.E*(DQ(dzd)*DQ(r0)));
     ddx_des = vec8(0.5*DQ.E*(DQ(ddzd)*DQ(r0)));
