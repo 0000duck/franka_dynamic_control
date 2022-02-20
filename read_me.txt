@@ -20,3 +20,6 @@ Instructions to run the simulation:
 3) run Main.m
 
 4) run panda_dynamic_control.m 
+
+NB: to change the simulation time and sampling time simply modify the values of time and cdt respectivately in main.m file.
+    to try different trajectories with the same interpolation simply modify values of time and pos_i,pos_f inside the for cicles in the correspondin .m files. 
