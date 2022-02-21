@@ -21,7 +21,7 @@ The file *panda_dynamic_control* contains the code for starting the simulation.
 
 Before running the file, open the corresponding CoppeliaSim scene (.ttt) inside the folder.
 
-Instructions for running the code are inside the *reas_me.txt* file.
+Instructions for running the code are inside the *read_me.txt* file.
 
 
 
