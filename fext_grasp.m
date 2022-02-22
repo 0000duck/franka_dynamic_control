@@ -5,14 +5,14 @@ function wrench_ext = fext_grasp(x,grasp)
     % Inputs: x = current EE pose;
     %         grasp = flag acknowleding grasping phase; 
     
-    %Intialize
+    %Initialize
     F_ext = 0; 
     
     %Parameters
     k_table = 5000; %N/m, environment stiffness
-    pc = 0.35; %contact position with object (z axis)
+    pc = 0.28; %contact position with object (z axis)
     mass_obj = 0.5; %kg (object's mass)
-    g = 9.81; %m/s^2 (gravity vector)
+    g = 9.81; %m/s^2 (gravity)
 
     %retrieve position 
     x_pos = vec4(DQ(x).translation); %EE position

@@ -7,8 +7,7 @@ Instructions to run the simulation:
 1) Open the corresponding CoppeliaSim scene inside the folder:
 
    - franka_scene.ttt --> to simulate free motion tasks;
-   - franka_int.ttt --> to simulate an interaction task with the environment;
-   - franka_grasp.ttt --> to simulate a grasping task of an object.
+   - franka_int.ttt --> to simulate an interaction/grasping task with the environment;
 
 2) Set the value of flag fuse inside Main.m file to the corresponding demo:
 
