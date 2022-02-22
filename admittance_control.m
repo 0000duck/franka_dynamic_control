@@ -19,7 +19,7 @@ cdt = time(2) - time(1); %sampling time
 
 x_hat = vec8(DQ(xr)'*DQ(xd)); %pose displacement between desired and compliant frame
 y_hat = yr; %log mapping of pose displacement
-dy_hat = dyr; %1-st time derivative of y
+dy_hat = dyr; %1st time derivative of y
 
 %% Mapping external wrench to be consistent with DQ log definition
 

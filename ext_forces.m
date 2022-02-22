@@ -7,7 +7,7 @@ function wrench_ext = ext_forces(x)
 
 %Environment parameters
 k_table = 5000; %N/m, environment stiffness
-pc = 0.35; %contact position (z axis)
+pc = 0.28; %contact position (z axis)
 
 %retrieve EE position
 x_pos = vec4(DQ(x).translation); %EE position

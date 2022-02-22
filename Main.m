@@ -9,7 +9,7 @@ clc;
 % fuse = 1,2 %free motion simulation (open franka_scene.ttt)
 % fuse = 3 %interaction task with table (open franka_int.ttt)
 % fuse = 4 %grasping task (open franka_grap.ttt)
-fuse = 4; 
+fuse = 3; 
 
 %% Addpath 
 
@@ -48,12 +48,14 @@ if fuse == 1 || fuse == 2
   q_in = [ 1.1519 0.38397 0.2618 -1.5708 0 1.3963 0]'; %rad
   pose_joint = DQ(1) + 0.5*DQ.E*(DQ([0;0.0413;0;0]));
 else
-  q_in = [0 0 0 -1.5708 0 1.5708 0]'; %rad
+  q_in = [0  0.1745 0  -1.7453  0.3491 1.5708  0]; %rad
   pose_joint = DQ(1) + 0.5*DQ.E*(DQ([0;0.0413;0;0]));
 end
+% franka.set_reference_frame(pose_joint);
+
 
 %% End-effector pose
-x_in = franka.fkm(q_in); 
+x_in = franka.fkm(q_in);
 p0_in = vec4(x_in.translation);
 r0_in = vec4(x_in.P);
 dx_in = zeros(8,1);

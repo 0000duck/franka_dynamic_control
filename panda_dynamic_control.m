@@ -60,7 +60,7 @@ if (clientID>-1)
     handles = get_joint_handles(sim,clientID);
     joint_handles = handles.armJoints;
     fep  = fep_vreprobot.kinematics(); 
-    fep.set_reference_frame(pose_joint); %set base-frame to current pose of joint1
+%   fep.set_reference_frame(pose_joint); %set base-frame to current pose of joint1
 
   
     %% get initial state of the robot
@@ -102,7 +102,7 @@ if (clientID>-1)
     % Saving data to struct analyze later
     sres.qm = [];  sres.qm_dot = []; sres.tau_send = [];
     sres.xd = [];  sres.xd_dot = [];  sres.xd_ddot = [];
-    sres.x = []; sres.xref = []; sres.r = []; 
+    sres.x = []; sres.xref = []; sres.r = []; sres.norm = []; 
     %---------------------------------------    
     
     % time
@@ -218,7 +218,7 @@ if (clientID>-1)
         % -----------------------
         disp(['it: ',num2str(i),' time(',num2str(i*cdt),') - error:',num2str(norm(xd_des-x))])
         disp(['it: ',num2str(i),' time(',num2str(i*cdt),') - pos error:',num2str(norm(vec4(DQ(xd_des).translation-DQ(x).translation)))])
-       
+        sres.norm(:,i) = norm(vec4(DQ(xd_des).translation-DQ(x).translation)); 
         
         % Saving data to analyze later
         % -----------------------
@@ -253,7 +253,8 @@ if (clientID>-1)
 %          tau = M*y + c + g;
                  
         %% Define error 
-        %% Invariant error defintiion --> e = 1 - x*xd' = (xd - x)*xd' (DQ)
+        %% Invariant error defintiion
+        %% e = 1 - x*xd' = (xd - x)*xd' (DQ)
         xe = xd_des - x;
         dxe = dxd_des - dx;
         e = haminus8(DQ(C8*xd_des))*xe;
@@ -321,7 +322,7 @@ end
 sim.delete(); % call the destructor!
 
 %% Plots results
-%% Controller inputs
+%% Controller torques commands
 figure(); 
 plot(tt,sres.tau_read(:,1),'m--','LineWidth',3); 
 hold on, grid on
