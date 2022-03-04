@@ -9,7 +9,7 @@ clc;
 % fuse = 1,2 %free motion simulation (open franka_scene.ttt)
 % fuse = 3 %interaction task with table (open franka_int.ttt)
 % fuse = 4 %grasping task (open franka_grap.ttt)
-fuse = 3; 
+fuse = 1; 
 
 %% Addpath 
 
@@ -28,7 +28,7 @@ q_max = [ 2.8973    1.7628    2.8973  -0.0698    2.8973    3.7525    2.8973];
 %% Parameters
 I = eye(6);
 C8 = DQ.C8;
-cdt = 0.01; %sampling time
+cdt = 0.005; %sampling time
 time = 0:cdt:2.5; %simulation time
 tt = time; 
 
@@ -51,7 +51,8 @@ else
   q_in = [0  0.1745 0  -1.7453  0.3491 1.5708  0]; %rad
   pose_joint = DQ(1) + 0.5*DQ.E*(DQ([0;0.0413;0;0]));
 end
-% franka.set_reference_frame(pose_joint);
+
+franka.set_reference_frame(pose_joint);
 
 
 %% End-effector pose
@@ -71,5 +72,26 @@ else
     Bd1 = 4*sqrt(4*Kd1*Md1); %desired damping
 end
 
+%% Variable gain utils
+berta = 0.98;
+inc = 1.08;
+csi = 1;
+a0 = 0.99;
+k_default = 1000; %N/m
+k_int = 100; %N/m arbitrarly low gain for interaction 
+k_track = 1000; %N/m arbitrarly high gain
+F_max = 2; %N
+e_max = 0.02; %m
+F_int_max = 5; %N
+mass = 1.5; %kg
+
 
 disp('Loading done!')
+
+Bd = zeros(6,6);
+Kd = zeros(6,6);
+Bd(4:6,4:6) = diag([dx, dy, dz]);
+Bd(1:3,1:3) = diag([2*sqrt(300) 2*sqrt(300) 2*sqrt(300)]); %rot damping
+Kd(4:6,4:6) = diag([kx, ky, kz]);
+Kd(1:3,1:3) = diag ([300 300 300]); %rot stiffness
+

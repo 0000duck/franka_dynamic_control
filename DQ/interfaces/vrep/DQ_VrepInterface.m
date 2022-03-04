@@ -78,7 +78,7 @@
 
 classdef DQ_VrepInterface < handle
     
-    properties (Access = private)
+    properties (Access = public)
         % the V-REP remote API instance used by this interface
         vrep;
         % the client ID of this remote API connection

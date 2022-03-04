@@ -1,4 +1,5 @@
-%% Panda dynamic control
+
+%% Panda dynamic admittance control with variable impedance gains.
 
 %% Description: simulation file for dynamic control of a 7 dof Panda Robot in Vrep using Dual Quaternions.
 %%Admittance controller: impedance controller in the outer loop +
@@ -129,7 +130,8 @@ if (clientID>-1)
         qm = double([qmread])';
         
         % Current EE configuration
-        x = vec8(fep.fkm(qm)); %DQ pose
+        x = vec8(fep.fkm(qm)); %EE pose
+        pos = vec4(DQ(x).translation); %EE position
         r0 = vec4(DQ(x).P); %EE rotation
         
         % Pose Jacobian
@@ -191,10 +193,24 @@ if (clientID>-1)
                 psi_ext = psi_ext'; 
                 psi_ext_data(i,:) = psi_ext;
         end
-        
+      
+      %% Modulate impedance gains  
+
+      %%Compute position error
+        xe = vec8(DQ(x)'* DQ(xd1(i,:))); %pose displacement
+        e = vec4(2*D(log(DQ(xe)))); %position error
+        e_pos = [e(2); e(3); e(4)];
+        curr_pos = [pos(2);pos(3);pos(4)]; 
+    
+     %%retrieve external forces
+       f_ext = w_ext_data(i,1:3)'; 
+       
+       
+
+
       %% Compute compliant trajectory
         
-        [xd,dxd,ddxd,yr,dyr] = admittance_control(xd1(i,:),dxd1(i,:),ddxd1(i,:),psi_ext,xr,yr_in,dyr_in,Md1,Kd1,Bd1,time);
+        [xd,dxd,ddxd,yr,dyr] = admittance_control(xd1(i,:),dxd1(i,:),ddxd1(i,:),psi_ext,xr,yr_in,dyr_in,Md1,Kd_var,Bd_var,time);
         
         xc_data(i,:) = xd; 
         dxc_data(i,:) = dxd;
