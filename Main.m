@@ -7,9 +7,8 @@ clc;
 
 %% define simulation 
 % fuse = 1,2 %free motion simulation (open franka_scene.ttt)
-% fuse = 3 %interaction task with table (open franka_int.ttt)
+fuse = 3;  %interaction task with table (open franka_int.ttt)
 % fuse = 4 %grasping task (open franka_grap.ttt)
-fuse = 1; 
 
 %% Addpath 
 
@@ -88,10 +87,5 @@ mass = 1.5; %kg
 
 disp('Loading done!')
 
-Bd = zeros(6,6);
-Kd = zeros(6,6);
-Bd(4:6,4:6) = diag([dx, dy, dz]);
-Bd(1:3,1:3) = diag([2*sqrt(300) 2*sqrt(300) 2*sqrt(300)]); %rot damping
-Kd(4:6,4:6) = diag([kx, ky, kz]);
-Kd(1:3,1:3) = diag ([300 300 300]); %rot stiffness
+
 

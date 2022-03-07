@@ -16,39 +16,27 @@ ddxc_data = zeros(size(time,2),8);
 yr_data = zeros(size(time,2),6);
 dyr_data =  zeros(size(time,2),6);
 
+k_data = zeros(size(time,2),3);
+d_data = zeros(size(time,2),3);
+
 %%wrench vector
 w_ext_data = zeros(size(time,2),6); %external wrench on EE (world_frame)
 psi_ext_data = zeros(size(time,2),6); %external wrench on EE (complinat_reference_frame)
 
 
-%% Load desired trajectory
-switch fuse
-    case 1
-        % gen_traj: task-space minimum jerk trajectory free-motion.
-%         [xd1, dxd1, ddxd1] = gen_traj(x_in,time);
-          [xd1, dxd1, ddxd1] = fixed_ref(x_in,time);
-    case 2
-        % circ_traj: circular trajectory plane y-z.
-        [xd1, dxd1, ddxd1] = circ_traj(x_in,time);
-    case 3
-        % int_traj: trajectory for interaction task test.
-        [xd1, dxd1, ddxd1] = int_traj(x_in,time);
-    case 4
-        % grasp_traj: trajectory for simple grasping task test.
-        [xd1,dxd1,ddxd1,grasp_data] = grasp_traj(x_in,time); 
-end
-
 %% Connect to vrep
 
 disp('Program started');
-sim=remApi('remoteApi'); % using the prototype file (remoteApiProto.m)
-sim.simxFinish(-1); % just in case, close all opened connections
+%% Initialize V-REP interface
 
-clientID=sim.simxStart('127.0.0.1',19997,true,true,5000,5);
+vi = DQ_VrepInterface;
+vi.disconnect_all();
+vi.connect('127.0.0.1',19997);
+clientID = vi.clientID;
+sim = vi.vrep;
 
 i=1;
 
-vi = DQ_VrepInterface;
 
 %% Initialize VREP Robots
 
@@ -62,8 +50,6 @@ if (clientID>-1)
     handles = get_joint_handles(sim,clientID);
     joint_handles = handles.armJoints;
     fep  = fep_vreprobot.kinematics(); 
-%   fep.set_reference_frame(pose_joint); %set base-frame to current pose of joint1
-
   
     %% get initial state of the robot
     qstr = '[ ';
@@ -76,6 +62,8 @@ if (clientID>-1)
         qdotstr = [qdotstr,num2str(qdot(j)),' '];
     end
     
+    q_in = double([q])'; 
+
     qstr = [qstr,']'];
     qdotstr = [qdotstr,']'];
     disp('Initial Joint positions: ');
@@ -83,6 +71,27 @@ if (clientID>-1)
     disp('Initial Joint Velocities: ');
     disp(qdotstr);
     
+    x_in = fep.fkm(q_in); 
+
+   %% Load desired trajectory
+switch fuse
+    case 1
+        % gen_traj: task-space minimum jerk trajectory free-motion.
+        [xd1, dxd1, ddxd1] = gen_traj(x_in,time);
+    case 2
+        % circ_traj: circular trajectory plane y-z.
+        [xd1, dxd1, ddxd1] = circ_traj(x_in,time);
+    case 3
+        % int_traj: trajectory for interaction task test.
+        [xd1,dxd1,ddxd1,phase_data] = var_int_traj(x_in,time); 
+        
+    case 4
+        % grasp_traj: trajectory for simple grasping task test.
+        [xd1,dxd1,ddxd1,grasp_data] = grasp_traj(x_in,time); 
+end
+
+
+
     %% Setting to synchronous mode
     %---------------------------------------
     sim.simxSynchronous(clientID,true);  
@@ -102,8 +111,8 @@ if (clientID>-1)
     qm = double([qmread])';
     
     % Saving data to struct analyze later
-    sres.qm = [];  sres.qm_dot = []; sres.tau_send = [];
-    sres.xd = [];  sres.xd_dot = [];  sres.xd_ddot = [];
+    sres.qm = [];  sres.qm_dot = []; sres.tau_send = []; sres.kd = [];
+    sres.xd = [];  sres.xd_dot = [];  sres.xd_ddot = []; sre.bd = []; 
     sres.x = []; sres.xref = []; sres.r = []; sres.norm = []; 
     %---------------------------------------    
     
@@ -147,7 +156,7 @@ if (clientID>-1)
         qm_dot = (qm-qmOld)/cdt; %computed as vrep function 
         
         %Current 1st-time derivative of EE pose
-        dx = Jp*qm_dot;
+        x_dot = Jp*qm_dot;
         
         % Pose Jacobian first-time derivative 
         Jp_dot = fep.pose_jacobian_derivative(qm,qm_dot);
@@ -200,13 +209,32 @@ if (clientID>-1)
         xe = vec8(DQ(x)'* DQ(xd1(i,:))); %pose displacement
         e = vec4(2*D(log(DQ(xe)))); %position error
         e_pos = [e(2); e(3); e(4)];
-        curr_pos = [pos(2);pos(3);pos(4)]; 
-    
+        curr_pos = [pos(2);pos(3);pos(4)];  
+
      %%retrieve external forces
        f_ext = w_ext_data(i,1:3)'; 
+    
+     %%compute stiffness and damping 
+       [kx,dx] = modulator(time,curr_pos(1),e_pos(1),f_ext(1),phase_data(i,:));
+       [ky,dy] = modulator(time,curr_pos(2),e_pos(2),f_ext(2),phase_data(i,:));
+       [kz,dz] = modulator(time,curr_pos(3),e_pos(3),f_ext(3),phase_data(i,:));
        
-       
+%        Bd_var(4:6,4:6) = diag([dx, dy, dz]);
+%        Bd_var(1:3,1:3) = diag([2*sqrt(300) 2*sqrt(300) 2*sqrt(300)]); %rot damping
+%        Kd_var(4:6,4:6) = diag([kx, ky, kz]);
+%        Kd_var(1:3,1:3) = diag ([300 300 300]); %rot stiffness
+       kt = diag([kx;ky;kz]); 
+       dt = diag([dx;dy;dz]); 
 
+       Kd_var = blkdiag(kt,kt);
+       Bd_var = blkdiag(dt,dt); 
+       
+       k_data(i,:) = [kx; ky; kz];
+       d_data(i,:) = [dx; dy; dz];
+       
+       %store values
+       sres.kd = k_data(i,:)';
+       sres.bd = d_data(i,:)';
 
       %% Compute compliant trajectory
         
@@ -273,7 +301,7 @@ if (clientID>-1)
         %% Invariant error defintiion
         %% e = 1 - x*xd' = (xd - x)*xd' (DQ)
         xe = xd_des - x;
-        dxe = dxd_des - dx;
+        dxe = dxd_des - x_dot;
         e = haminus8(DQ(C8*xd_des))*xe;
         e_dot = haminus8(DQ(C8*dxd_des))*xe + haminus8(DQ(C8*xd_des))*dxe;
         ei = e_dot*cdt + e; 

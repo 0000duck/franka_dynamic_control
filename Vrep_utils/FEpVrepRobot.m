@@ -72,8 +72,8 @@ FEp_DH_alpha];
 % dqtemp = dqtemp*inv(norm(dqtemp));
 % dqtemp
 %              kin.set_base_frame(obj.vrep_interface.get_object_pose(obj.base_frame_name));
-%              kin.set_base_frame(evalin("base","pose_joints(1)"));             
-%              kin.set_reference_frame(evalin("base","pose_joint"));             
+             kin.set_reference_frame(obj.vrep_interface.get_object_pose(obj.base_frame_name));
+            kin.set_base_frame(obj.vrep_interface.get_object_pose(obj.base_frame_name));
           %  kin.set_effector(1+0.5*DQ.E*DQ.k*0.1070);
         end
     end

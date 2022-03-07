@@ -1,7 +1,7 @@
 function [k,d] = modulator(time,pos,e_pos,F_ext,phase)
 
-%% Description: Modulate stiffness and damping on each cartesian dof of the impedance controller to guarantee good 
-%%              tracking perfomance and safe interaction. 
+%% Description: Modulate stiffness and damping on each cartesian dof of the impedance controller to guarantee good
+%%              tracking perfomance and safe interaction.
 
 %%Inputs:     pos = current position [1x1]
 %             e_pos = position erro [1x1]
@@ -16,7 +16,15 @@ function [k,d] = modulator(time,pos,e_pos,F_ext,phase)
 %             a0,berta,csi = parameters from stability conditions
 %             mass = apparent mass
 
-cdt = time(2) - time(1); 
+berta = 0.98;
+csi = 1;
+a0 = 0.99;
+k_default = 1000; %N/m
+F_max = 2; %N
+F_int_max = 5; %N
+mass = 1.5; %kg
+
+cdt = time(2) - time(1);
 
 %% Initialization
 persistent ki int time_prec
@@ -34,38 +42,43 @@ if isempty(time_prec)
     time_prec = 0;
 end
 
+i = 1;
 
 %% Compute k
-if phase == 0
-    if abs(F_ext) > F_max %contact is detected
-        ki = 0.995*ki; %arbitrarly decrease k 
-        if int == 1000 %contact position not set yet
-            int = pos;
+for i = 1:size(time,2)
+    if phase == 0
+        if abs(F_ext) > F_max %contact is detected
+            ki = 0.995*ki; %arbitrarly decrease k
+            if int == 1000 %contact position not set yet
+                int = pos;
+            end
+            % if interaction force is higher than threshold
+            if ki*abs(e_pos) > F_int_max
+                % set k
+                ktemp_x = F_int_max/abs(e_pos);
+                if ktemp_x < ki
+                    ki = ktemp_x;
+                end
+            end
         end
-        % if interaction force is higher than threshold
-        if ki*abs(e_pos) > F_int_max
-            % set k
-            ktemp_x = F_int_max/abs(e_pos);
-            if ktemp_x < ki
-                ki = ktemp_x;
+    else
+        if pos > int + 0.005 %safe to increase k
+            k_dot = berta*(4*a0*sqrt(ki/mass)*(ki)^(3/2))/(sqrt(ki) + 2*a0*csi*sqrt(ki)); %maximum variation within stability conditions
+            k_tempx = ki + k_dot*(time(i) -time_prec);
+            ki = k_tempx;
+            if k_tempx > k_default
+                ki = k_default;
             end
         end
     end
-else
-    if pos > int + 0.005 %safe to increase k
-        k_dot = berta*(4*a0*sqrt(ki/mass)*(ki)^(3/2))/(sqrt(ki) + 2*a0*csi*sqrt(ki)); %maximum variation within stability conditions 
-        k_tempx = ki + k_dot*(time(i) -time_prec);
-        ki = k_tempx;
-        if k_tempx > k_default
-            ki = k_default;
-        end
-    end
+
+    k = ki;
+    d = sqrt(4*mass*k);
+
+    time_prec = time(i);
+
+    i = i+1;
 end
-
-k = ki;
-time_prec = time(i);
-
-d = sqrt(4*mass*k); 
 
 end
 
