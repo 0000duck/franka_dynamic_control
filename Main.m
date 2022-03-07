@@ -45,13 +45,9 @@ franka = DQ_SerialManipulator(FEp_DH_matrix,'standard');
 %% Joint angles
 if fuse == 1 || fuse == 2
   q_in = [ 1.1519 0.38397 0.2618 -1.5708 0 1.3963 0]'; %rad
-  pose_joint = DQ(1) + 0.5*DQ.E*(DQ([0;0.0413;0;0]));
 else
   q_in = [0  0.1745 0  -1.7453  0.3491 1.5708  0]; %rad
-  pose_joint = DQ(1) + 0.5*DQ.E*(DQ([0;0.0413;0;0]));
 end
-
-franka.set_reference_frame(pose_joint);
 
 
 %% End-effector pose
