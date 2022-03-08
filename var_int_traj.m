@@ -7,13 +7,13 @@ function [xd,dxd,ddxd,phase_data] = var_int_traj(x_in,time)
 xd = [zeros(size(time,2),8)];
 dxd = [zeros(size(time,2),8)];
 ddxd = [zeros(size(time,2),8)];
-phase_data = [zeros(size(time,2),1)]; 
+phase_data = [zeros(size(time,2),3)]; 
 
 %%retrive initial conditions
 p0 = vec4(x_in.translation);
 r0 = vec4(P(x_in));
 pos_i = [p0(2);p0(3);p0(4)];
-phase = 0; 
+phase = zeros(3,1); 
 
 i = 1;  
 
@@ -22,23 +22,24 @@ for i = 1:size(time,2)
         pos_f = pos_i + [0;0;-0.2];
         tf = 1;
         t = time(i);
-    elseif (time(i) >=1 && time(i) < 1.3) %pause
+    elseif (time(i) >=1 && time(i) < 2) %pause (interaction)
         pos_i = [p0(2);p0(3);p0(4)-0.2];
         pos_f = pos_i;
-        tf = 0.3;
+        tf = 2;
         t = time(i) - 1;
-    elseif (time(i) >= 1.3 && time(i) < 2.3) %go up
+        phase(3) = 1; 
+    elseif (time(i) >= 2 && time(i) < 2.5) %go up
         pos_i = [p0(2);p0(3);p0(4)-0.2];
         pos_f = pos_i + [0;0;0.2];
-        tf = 1;
-        t = time(i) - 1.3;
-        phase = 1; 
+        tf = 0.5;
+        t = time(i) - 2;
+        phase(3) = 1; 
     else
         pos_i = [p0(2);p0(3);p0(4)];
         pos_f = pos_i;
         tf = 1000;
-        t = time(i) - 2.3;
-        phase = 1; 
+        t = time(i) - 2.5;
+        phase(3) = 1; 
     end
 
     %% Minimum jerk interpolation

@@ -215,14 +215,14 @@ end
        f_ext = w_ext_data(i,1:3)'; 
     
      %%compute stiffness and damping 
-       [kx,dx] = modulator(time,curr_pos(1),e_pos(1),f_ext(1),phase_data(i,:));
-       [ky,dy] = modulator(time,curr_pos(2),e_pos(2),f_ext(2),phase_data(i,:));
-       [kz,dz] = modulator(time,curr_pos(3),e_pos(3),f_ext(3),phase_data(i,:));
+%        [kx,dx] = modulator(time(i),curr_pos(1),e_pos(1),f_ext(1),phase_data(i,1));
+%        [ky,dy] = modulator(time(i),curr_pos(2),e_pos(2),f_ext(2),phase_data(i,2));
+%        [kz,dz] = modulator(time(i),curr_pos(3),e_pos(3),f_ext(3),phase_data(i,3));
        
-%        Bd_var(4:6,4:6) = diag([dx, dy, dz]);
-%        Bd_var(1:3,1:3) = diag([2*sqrt(300) 2*sqrt(300) 2*sqrt(300)]); %rot damping
-%        Kd_var(4:6,4:6) = diag([kx, ky, kz]);
-%        Kd_var(1:3,1:3) = diag ([300 300 300]); %rot stiffness
+       [kx,dx] = test_var_gains(phase_data(i,1),f_ext(1));
+       [ky,dy] = test_var_gains(phase_data(i,2),f_ext(2));
+       [kz,dz] = test_var_gains(phase_data(i,3),f_ext(3));
+
        kt = diag([kx;ky;kz]); 
        dt = diag([dx;dy;dz]); 
 
@@ -429,3 +429,12 @@ hold on, grid on
 plot(tt,sres.fext(2,:),'LineWidth',2);
 hold on,grid on
 plot(tt,sres.fext(3,:),'LineWidth',2);
+
+%% Admittance gains
+figure()
+plot(tt,k_data(:,1)','LineWidth',2);
+hold on, grid on
+plot(tt,k_data(:,2)','LineWidth',2);
+hold on,grid on
+plot(tt,k_data(:,3)','LineWidth',2);
+legend('kx','ky','kz')
