@@ -5,6 +5,8 @@
 %%Admittance controller: impedance controller in the outer loop +
 %%task-space motion control with feedback linearization. 
 
+%% Modulator: change stiffness and damping online to guarantee safe interaction and better tracking perfomances
+
 %% Addpath 
 include_namespace_dq;
 
@@ -73,25 +75,9 @@ if (clientID>-1)
     
     x_in = fep.fkm(q_in); 
 
-   %% Load desired trajectory
-switch fuse
-    case 1
-        % gen_traj: task-space minimum jerk trajectory free-motion.
-        [xd1, dxd1, ddxd1] = gen_traj(x_in,time);
-    case 2
-        % circ_traj: circular trajectory plane y-z.
-        [xd1, dxd1, ddxd1] = circ_traj(x_in,time);
-    case 3
-        % int_traj: trajectory for interaction task test.
-        [xd1,dxd1,ddxd1,phase_data] = var_int_traj(x_in,time); 
-        
-    case 4
-        % grasp_traj: trajectory for simple grasping task test.
-        [xd1,dxd1,ddxd1,grasp_data] = grasp_traj(x_in,time); 
-end
-
-
-
+    %% Load desired trajectory
+    [xd1, dxd1, ddxd1,phase_data] = var_int_traj(x_in,time);
+    
     %% Setting to synchronous mode
     %---------------------------------------
     sim.simxSynchronous(clientID,true);  
@@ -176,7 +162,6 @@ end
         end
         
         %% Model ext forces
-        
         switch fuse
             case 1
                 % free-motion trajectory
@@ -215,14 +200,10 @@ end
        f_ext = w_ext_data(i,1:3)'; 
     
      %%compute stiffness and damping 
-%        [kx,dx] = modulator(time(i),curr_pos(1),e_pos(1),f_ext(1),phase_data(i,1));
-%        [ky,dy] = modulator(time(i),curr_pos(2),e_pos(2),f_ext(2),phase_data(i,2));
-%        [kz,dz] = modulator(time(i),curr_pos(3),e_pos(3),f_ext(3),phase_data(i,3));
+       [kx,dx] = modulator(time(i),curr_pos(1),e_pos(1),f_ext(1),phase_data(i,1));
+       [ky,dy] = modulator(time(i),curr_pos(2),e_pos(2),f_ext(2),phase_data(i,2));
+       [kz,dz] = modulator(time(i),curr_pos(3),e_pos(3),f_ext(3),phase_data(i,3));
        
-       [kx,dx] = test_var_gains(phase_data(i,1),f_ext(1));
-       [ky,dy] = test_var_gains(phase_data(i,2),f_ext(2));
-       [kz,dz] = test_var_gains(phase_data(i,3),f_ext(3));
-
        kt = diag([kx;ky;kz]); 
        dt = diag([dx;dy;dz]); 
 

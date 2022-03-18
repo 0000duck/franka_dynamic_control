@@ -27,8 +27,8 @@ q_max = [ 2.8973    1.7628    2.8973  -0.0698    2.8973    3.7525    2.8973];
 %% Parameters
 I = eye(6);
 C8 = DQ.C8;
-cdt = 0.005; %sampling time
-time = 0:cdt:2.5; %simulation time
+cdt = 0.01; %sampling time
+time = 0:cdt:2; %simulation time
 tt = time; 
 
 %% Build robot
