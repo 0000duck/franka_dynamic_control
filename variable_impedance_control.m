@@ -25,7 +25,6 @@ d_data = zeros(size(time,2),3);
 w_ext_data = zeros(size(time,2),6); %external wrench on EE (world_frame)
 psi_ext_data = zeros(size(time,2),6); %external wrench on EE (complinat_reference_frame)
 
-
 %% Connect to vrep
 
 disp('Program started');
@@ -76,7 +75,7 @@ if (clientID>-1)
     x_in = fep.fkm(q_in); 
 
     %% Load desired trajectory
-    [xd1, dxd1, ddxd1,phase_data] = var_int_traj(x_in,time);
+    [xd1, dxd1, ddxd1,grasp_data,phase_data] = var_int_traj(x_in,time);
     
     %% Setting to synchronous mode
     %---------------------------------------
@@ -162,44 +161,26 @@ if (clientID>-1)
         end
         
         %% Model ext forces
-        switch fuse
-            case 1
-                % free-motion trajectory
-                psi_ext = zeros(1,6); %external wrench (compliant frame)
-                psi_ext_data(i,:) = psi_ext; 
-            case 2
-                % free-motion trajectory
-                psi_ext = zeros(1,6); %external wrench (compliant frame)
-                psi_ext_data(i,:) = psi_ext; 
-            case 3
-                % interaction task: model of external forces
-                wrench_ext = ext_forces(x);
-                w_ext_data(i,:) = wrench_ext;
-                psi_ext = vec6(DQ(r0)'*DQ(wrench_ext)*DQ(r0)); %external wrench (compliant frame)
-                psi_ext = psi_ext';
-                psi_ext_data(i,:) = psi_ext;
-            case 4
-                 % grasping task: model of external forces task test.
-                grasp = grasp_data(i,:);
-                wrench_ext = fext_grasp(x,grasp);
-                w_ext_data(i,:) = wrench_ext;
-                psi_ext = vec6(DQ(r0)'*DQ(wrench_ext)*DQ(r0)); %external wrench (compliant frame)
-                psi_ext = psi_ext'; 
-                psi_ext_data(i,:) = psi_ext;
-        end
       
-      %% Modulate impedance gains  
+        grasp = grasp_data(i,:);
+        wrench_ext = fext_grasp(x,grasp);
+        w_ext_data(i,:) = wrench_ext;
+        psi_ext = vec6(DQ(r0)'*DQ(wrench_ext)*DQ(r0)); %external wrench (compliant frame)
+        psi_ext = psi_ext'; 
+        psi_ext_data(i,:) = psi_ext;
+       
+        %% Modulate impedance gains  
 
-      %%Compute position error
+        %%Compute position error
         xe = vec8(DQ(x)'* DQ(xd1(i,:))); %pose displacement
         e = vec4(2*D(log(DQ(xe)))); %position error
         e_pos = [e(2); e(3); e(4)];
         curr_pos = [pos(2);pos(3);pos(4)];  
 
-     %%retrieve external forces
-       f_ext = w_ext_data(i,1:3)'; 
+       %%retrieve external forces
+        f_ext = w_ext_data(i,1:3)'; 
     
-     %%compute stiffness and damping 
+        %%compute stiffness and damping 
        [kx,dx] = modulator(time(i),curr_pos(1),e_pos(1),f_ext(1),phase_data(i,1));
        [ky,dy] = modulator(time(i),curr_pos(2),e_pos(2),f_ext(2),phase_data(i,2));
        [kz,dz] = modulator(time(i),curr_pos(3),e_pos(3),f_ext(3),phase_data(i,3));
@@ -270,14 +251,7 @@ if (clientID>-1)
         %% Controller gains;
          kp = 1000*0.5;
          kd = 100*0.5;
-         ki = 500; %integral gain
          
-%          e = xd_des - x;
-%          de = dxd_des - dx;
-%          ei = de*cdt + e;
-%          y = pinv(Jp)*(ddxd_des - Jp_dot*qm_dot  + kp*eye(8)*e + kd*eye(8)*de + 0*ki*eye(8)*ei);
-%          tau = M*y + c + g;
-                 
         %% Define error 
         %% Invariant error defintiion
         %% e = 1 - x*xd' = (xd - x)*xd' (DQ)
@@ -299,7 +273,6 @@ if (clientID>-1)
 
         %% fb linearization
         tau = M*aq + c + g ;
-%         tau = g; 
 
         %% Null-space controller
         N = haminus8(DQ(xd_des))*DQ.C8*Jp;
