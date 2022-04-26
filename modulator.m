@@ -1,4 +1,4 @@
-function [k,d] = modulator(time_curr,pos,e_pos,F_ext,phase)
+function [k,d] = modulator(time_curr,time_prec,pos,e_pos,F_ext,phase)
 
 %% Description: Modulate stiffness and damping on each cartesian dof of the impedance controller to guarantee good
 %%              tracking perfomance and safe interaction.
@@ -19,13 +19,13 @@ function [k,d] = modulator(time_curr,pos,e_pos,F_ext,phase)
 berta = 0.98;
 csi = 1;
 a0 = 0.99;
-k_default = 500; %N/m
+k_default = 900; %N/m
 F_max = 2; %N
 F_int_max = 5; %N
 mass = 1.5; %kg
 
 %% Initialization
-persistent ki int time_prec
+persistent ki int 
 
 % persistent initialization
 if isempty(ki)
@@ -34,10 +34,6 @@ end
 
 if isempty(int)
     int = 1000;
-end
-
-if isempty(time_prec)
-    time_prec = 0;
 end
 
 
@@ -58,20 +54,18 @@ if phase == 0
         end
     end
 else
-%     if pos > int  %safe to increase k
+    if pos > int+0.005 %safe to increase k
         k_dot = berta*(4*a0*sqrt(ki/mass)*(ki)^(3/2))/(sqrt(ki) + 2*a0*csi*sqrt(ki)); %maximum variation within stability conditions
         k_tempx = ki + k_dot*(time_curr -time_prec);
         ki = k_tempx;
         if k_tempx > k_default
             ki = k_default;
         end
-%     end
+     end
 end
 
 k = ki;
-d = 4*sqrt(4*mass*k);
-
-time_prec = time_curr;
+d = 4*sqrt(4*mass*k); 
 
 end
 

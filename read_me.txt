@@ -21,4 +21,10 @@ Instructions to run the simulation:
 4) run panda_dynamic_control.m 
 
 NB: to change the simulation time and sampling time simply modify the values of time and cdt respectivately in main.m file.
-    to try different trajectories with the same interpolation simply modify values of time and pos_i,pos_f inside the for cicles in the correspondin .m files. 
+    to try different trajectories with the same interpolation simply modify values of time and pos_i,pos_f inside the for cicles in the correspondin .m files.
+
+Add-Ons:
+
+variable_impedance_control.m --> added a script where stiffness and damping are modulated online during the grasping task.
+                                 
+The comparison between variable and fixeed gains in terms of tracking perfomance and external force are in plot_data.m  

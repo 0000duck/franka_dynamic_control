@@ -24,23 +24,23 @@ for i = 1:size(time,2)
         pos_f = pos_i + [0;0;-0.2];
         tf = 1;
         t = time(i);
-    elseif (time(i) >=1 && time(i) < 2) %pause (interaction)
+    elseif (time(i) >=1 && time(i) < 1.3) %pause (interaction)
         pos_i = [p0(2);p0(3);p0(4)-0.2];
         pos_f = pos_i;
-        tf = 2;
+        tf = 0.3;
         t = time(i) - 1;
         grasp(3)= 1; 
-    elseif (time(i) >= 2 && time(i) < 2.5) %go up
+    elseif (time(i) >= 1.3 && time(i) < 2.3) %go up
         pos_i = [p0(2);p0(3);p0(4)-0.2];
         pos_f = pos_i + [0;0;0.2];
-        tf = 0.5;
-        t = time(i) - 2;
+        tf = 1;
+        t = time(i) - 1.3;
         phase(3) = 1; 
     else
         pos_i = [p0(2);p0(3);p0(4)];
         pos_f = pos_i;
         tf = 1000;
-        t = time(i) - 2.5;
+        t = time(i) - 2.3;
         phase(3) = 1; 
     end
 

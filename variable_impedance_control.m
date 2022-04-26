@@ -153,11 +153,13 @@ if (clientID>-1)
             xr = xc_data(i-1,:)';
             yr_in = yr_data(i-1,:)';
             dyr_in = dyr_data(i-1,:)';
+            time_prec = time(i-1);
         else
             xr = vec8(x_in);
             e_in = vec8(DQ(xr)'*DQ(xd1(1,:)));
             yr_in = vec6(log(DQ(e_in)));
             dyr_in = zeros(6,1);
+            time_prec = 0; 
         end
         
         %% Model ext forces
@@ -181,9 +183,9 @@ if (clientID>-1)
         f_ext = w_ext_data(i,1:3)'; 
     
         %%compute stiffness and damping 
-       [kx,dx] = modulator(time(i),curr_pos(1),e_pos(1),f_ext(1),phase_data(i,1));
-       [ky,dy] = modulator(time(i),curr_pos(2),e_pos(2),f_ext(2),phase_data(i,2));
-       [kz,dz] = modulator(time(i),curr_pos(3),e_pos(3),f_ext(3),phase_data(i,3));
+       [kx,dx] = modulator(time(i),time_prec,curr_pos(1),e_pos(1),f_ext(1),phase_data(i,1));
+       [ky,dy] = modulator(time(i),time_prec,curr_pos(2),e_pos(2),f_ext(2),phase_data(i,2));
+       [kz,dz] = modulator(time(i),time_prec,curr_pos(3),e_pos(3),f_ext(3),phase_data(i,3));
        
        kt = diag([kx;ky;kz]); 
        dt = diag([dx;dy;dz]); 

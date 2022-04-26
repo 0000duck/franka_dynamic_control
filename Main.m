@@ -15,7 +15,9 @@ fuse = 3;  %interaction task with table (open franka_int.ttt)
 p1 = genpath('DQ');
 p2 = genpath('functions');
 p3 = genpath('Vrep_utils');
-addpath(p1,p2,p3); 
+p4 = genpath('impedance_admittance'); 
+p5 = genpath('Data');
+addpath(p1,p2,p3,p4,p5); 
 
 disp('Loading data..')
 
@@ -28,7 +30,7 @@ q_max = [ 2.8973    1.7628    2.8973  -0.0698    2.8973    3.7525    2.8973];
 I = eye(6);
 C8 = DQ.C8;
 cdt = 0.01; %sampling time
-time = 0:cdt:3; %simulation time
+time = 0:cdt:2.5; %simulation time
 tt = time; 
 
 %% Build robot
@@ -76,7 +78,7 @@ k_default = 1000; %N/m
 k_int = 100; %N/m arbitrarly low gain for interaction 
 k_track = 1000; %N/m arbitrarly high gain
 F_max = 2; %N
-e_max = 0.02; %m
+e_max = 0.01; %m
 F_int_max = 5; %N
 mass = 1.5; %kg
 
