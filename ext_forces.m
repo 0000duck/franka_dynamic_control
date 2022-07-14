@@ -6,7 +6,8 @@ function wrench_ext = ext_forces(x)
 % Inputs: x = current EE pose;
 
 %Environment parameters
-k_table = 5000; %N/m, environment stiffness
+% k_table = 5000; %N/m, environment stiffness
+k_table = 5000*2; %N/m, environment stiffness
 pc = 0.28; %contact position (z axis)
 
 %retrieve EE position

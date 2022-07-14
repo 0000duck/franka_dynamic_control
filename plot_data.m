@@ -1,9 +1,7 @@
-%% Plots comparison between fixed and variable
+%% Plots comparison between admittance and variable control using DQ log mapping
 
-load("Data/fix_imp.mat");
-load("Data/var_imp.mat");
-load("Data/k_var.mat");
-
+%% Test 1: Environment stiffness = 10000 N/m
+load("Data/impedance_control.mat");
 
 %%MOTIVATION
 
