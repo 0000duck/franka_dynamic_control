@@ -27,4 +27,7 @@ Add-Ons:
 
 variable_admittance_control.m --> added a script where stiffness and damping are modulated online during the grasping task.
                                  
-The comparison between variable and fixeed gains in terms of tracking perfomance and external force are in plot_data.m  
+The comparison between variable and fixed gains in terms of tracking perfomance and external force are in plot_data.m  
+
+COMPARISON VARIABLE ADMITTANCE AND VARIABLE IMPEDANCE CONTROL
+

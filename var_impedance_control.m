@@ -1,3 +1,4 @@
+
 %% Panda dynamic impedance control with variable impedance gains.
 
 %% Description: simulation file for dynamic control of a 7 dof Panda Robot in Vrep using Dual Quaternions.
@@ -72,7 +73,7 @@ if (clientID>-1)
     x_in = fep.fkm(q_in); 
 
     %% Load nominal desired trajectory
-    [xd1, dxd1, ddxd1] = int_traj(x_in,time);
+    [xd1,dxd1,ddxd1,grasp_data,phase_data] = var_int_traj(x_in,time)
     
     %% Setting to synchronous mode
     %---------------------------------------
@@ -166,7 +167,9 @@ if (clientID>-1)
         end
         
         %% Model ext forces
-        wrench_ext = ext_forces(x); %world frame
+%         wrench_ext = ext_forces(x); %world frame
+        grasp = grasp_data(i,:);
+        wrench_ext = fext_grasp(x,grasp);
         w_ext_data(i,:) = wrench_ext;
         %External wrench (w.r.t to EE frame)
         psi_ext = vec6(DQ(r0)'*DQ(wrench_ext)*DQ(r0)); 
@@ -179,19 +182,28 @@ if (clientID>-1)
         G = getG(DQ(x_hat));
         Glog = Ibar*G*Q8;
         flog = (Glog)'*(psi_ext');
+       
+        %%Compute position error
+        xe = vec8(DQ(x)'* DQ(xd1(i,:))); %pose displacement
+        e = vec4(2*D(log(DQ(xe)))); %position error
+        e_pos = [e(2); e(3); e(4)];
+        curr_pos = [pos(2);pos(3);pos(4)];  
+
+       %%retrieve external forces
+        f_ext = w_ext_data(i,1:3)'; 
 
         %% Modulate impedance gains
         %%compute stiffness and damping 
-%        [kx,dx] = modulator(time(i),time_prec,curr_pos(1),e_pos(1),f_ext(1),phase_data(i,1));
-%        [ky,dy] = modulator(time(i),time_prec,curr_pos(2),e_pos(2),f_ext(2),phase_data(i,2));
-%        [kz,dz] = modulator(time(i),time_prec,curr_pos(3),e_pos(3),f_ext(3),phase_data(i,3));
+       [kx,dx] = modulator(time(i),time_prec,curr_pos(1),e_pos(1),f_ext(1),phase_data(i,1));
+       [ky,dy] = modulator(time(i),time_prec,curr_pos(2),e_pos(2),f_ext(2),phase_data(i,2));
+       [kz,dz] = modulator(time(i),time_prec,curr_pos(3),e_pos(3),f_ext(3),phase_data(i,3));
 
-       kx = 100; %N/m
-       ky = kx;
-       kz = kx; 
-       dx = 4*sqrt(kx*1.5);
-       dy = dx;
-       dz = dx; 
+%        kx = 100; %N/m
+%        ky = kx;
+%        kz = kx; 
+%        dx = 4*sqrt(kx*1.5);
+%        dy = dx;
+%        dz = dx; 
        kt = diag([kx;ky;kz]); 
        dt = diag([dx;dy;dz]); 
 
@@ -205,8 +217,8 @@ if (clientID>-1)
        d_data(i,:) = [dx; dy; dz];
        
        %store values
-       sres.kd = k_data(i,:)';
-       sres.bd = d_data(i,:)';
+       sres.kd(i,:) = k_data(i,:)';
+       sres.bd(i,:) = d_data(i,:)';
 
       %% Compute desired cl dyn, 
         ddyr = inv(Md1)*(-Bd_var*dyr - Kd_var*yr-flog);
